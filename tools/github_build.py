@@ -38,9 +38,14 @@ BRANCH = os.environ.get("GITHUB_BRANCH", "main")
 WORKFLOW = "build-apk.yml"
 
 SKIP_DIRS = {
-    ".git", "target", "domainmail", "dist", ".gradle", "build",
+    ".git", "target", "dist", ".gradle", "build",
     "node_modules", "__pycache__", ".idea", "captures",
 }
+
+# 只跳过仓库根目录里 clone 的参考后端。千万不能按任意层级匹配 "domainmail"，
+# 否则会把包名 com/ifwqu/domainmail 下的 Kotlin 源码一起跳过，
+# 构建出没有 MainActivity 的空壳 APK（装上直接闪退）。
+SKIP_ROOT_DIRS = {"domainmail"}
 SKIP_SUFFIXES = {
     ".so", ".apk", ".aab", ".jar", ".class", ".exe", ".dll", ".pdb",
     ".zst", ".crate", ".zip", ".bak", ".log", ".keystore", ".jks",
@@ -94,6 +99,8 @@ def collect_files():
             continue
         rel = path.relative_to(ROOT).as_posix()
         parts = rel.split("/")
+        if parts[0] in SKIP_ROOT_DIRS:
+            continue
         if any(part in SKIP_DIRS for part in parts[:-1]):
             continue
         if path.name in SKIP_FILES or path.suffix.lower() in SKIP_SUFFIXES:
@@ -143,7 +150,23 @@ def head_sha():
 def push(files):
     """用 Git Data API 一次 create-tree 提交全部文本文件，不需要本地 git。"""
     resolve_repo()
-    print(f"[push] {len(files)} 个文件")
+
+    # 防呆：没有 Kotlin 源码时 Gradle 照样能"构建成功"，但 APK 里没有
+    # MainActivity，装上必闪退。这里直接拒绝推送。
+    kotlin = [
+        p for p in files
+        if p.startswith("android/app/src/main/java/") and p.endswith(".kt")
+    ]
+    if len(kotlin) < 5:
+        sys.exit(
+            f"[push] 拒绝推送：只找到 {len(kotlin)} 个 Kotlin 源文件，"
+            "构建出的会是空壳 APK（缺少 Activity）"
+        )
+    workflow = ".github/workflows/build-apk.yml"
+    if workflow not in files:
+        sys.exit("[push] 拒绝推送：缺少 build-apk.yml")
+
+    print(f"[push] {len(files)} 个文件，其中 Kotlin 源文件 {len(kotlin)} 个")
 
     entries = [
         {"path": name, "mode": "100644", "type": "blob", "content": content}

@@ -85,6 +85,36 @@ jobs:
           ls -lh "$APK"
           "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --print-certs "$APK" | head -20
 
+      # Gradle 在没有任何 Kotlin 源文件时也能"构建成功"，产出的却是没有
+      # Activity 的空壳 APK（装上直接闪退）。这里强制校验产物内容。
+      - name: Verify APK actually contains app classes
+        run: |
+          python3 - <<'PY'
+          import glob, sys, zipfile
+
+          apks = glob.glob('android/app/build/outputs/apk/release/*.apk')
+          if not apks:
+              sys.exit('::error::没有找到 APK')
+          z = zipfile.ZipFile(apks[0])
+          dex = b''.join(z.read(n) for n in z.namelist() if n.endswith('.dex'))
+
+          required = [
+              b'Lcom/ifwqu/domainmail/MainActivity;',
+              b'Lcom/ifwqu/domainmail/RustBridge;',
+              b'nativeCall',
+              b'domainmail_core',
+          ]
+          missing = [s.decode() for s in required if s not in dex]
+          native = sorted(n for n in z.namelist() if n.endswith('libdomainmail_core.so'))
+          print('native libs:', native)
+
+          if missing:
+              sys.exit('::error::APK 的 dex 缺少应用类: ' + ', '.join(missing))
+          if len(native) < 3:
+              sys.exit('::error::APK 缺少多 ABI 的 Rust .so: ' + str(native))
+          print('APK 内容校验通过：Activity / JNI 桥 / 三 ABI native 库齐全')
+          PY
+
       - name: Rename artifact
         run: |
           mkdir -p dist
