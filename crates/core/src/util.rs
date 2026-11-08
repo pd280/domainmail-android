@@ -87,7 +87,10 @@ pub fn filename_from_disposition(disposition: &str) -> Option<String> {
 /// 去掉路径分隔符等危险字符，防止下载时写出目录外。
 /// Content-Disposition 是服务端给的，可能夹带路径穿越，所以先只取最后一段。
 pub fn safe_filename(name: &str) -> String {
-    let base = name.rsplit(|c| c == '/' || c == '\\').next().unwrap_or(name);
+    let base = name
+        .rsplit(|c| c == '/' || c == '\\')
+        .next()
+        .unwrap_or(name);
     let cleaned: String = base
         .chars()
         .map(|c| match c {
