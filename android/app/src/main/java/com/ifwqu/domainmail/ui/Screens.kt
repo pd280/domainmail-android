@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -385,9 +386,12 @@ private fun MainScreen(state: MailState) {
     }
 }
 
-/** 底栏统一格子：所有页面共用，保证图标、字号、配色完全一致。 */
+/**
+ * 底栏统一格子：所有页面共用，保证图标、字号、配色完全一致。
+ * 必须是 RowScope 扩展——Material3 的 NavigationBarItem 只在 RowScope 上下文可用。
+ */
 @Composable
-private fun DmNavItem(
+private fun RowScope.DmNavItem(
     selected: Boolean,
     onClick: () -> Unit,
     icon: androidx.compose.ui.graphics.vector.ImageVector,
