@@ -33,7 +33,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.AlternateEmail
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.AttachFile
@@ -42,10 +41,8 @@ import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material.icons.filled.Email
 import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.Inbox
-import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Logout
 import androidx.compose.material.icons.filled.MailOutline
 import androidx.compose.material.icons.filled.Person
@@ -287,12 +284,48 @@ private fun MainScreen(state: MailState) {
     Scaffold(
         containerColor = palette.appBg,
         topBar = {
+            // 顶栏承载「当前身份」：品牌 + 常驻的完整邮箱地址 + 线性图标切换入口。
+            // 与底栏统一使用单色线性图标，不再出现彩色圆形头像那种异类元素。
             TopAppBar(
                 title = {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { showMailboxSheet = true },
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
                         BrandMark(30)
                         Spacer(Modifier.width(10.dp))
-                        Text("DomainMail", fontSize = 18.sp, fontWeight = FontWeight.Bold, color = palette.ink)
+                        Column(Modifier.weight(1f)) {
+                            Text(
+                                "DomainMail",
+                                fontSize = 16.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = palette.ink,
+                                lineHeight = 19.sp
+                            )
+                            // 副标题常驻当前邮箱，行尾箭头提示「可点开切换」
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text(
+                                    state.currentMailbox?.takeIf { it.isNotBlank() }
+                                        ?: state.user?.email?.takeIf { it.isNotBlank() }
+                                        ?: "未登录",
+                                    fontSize = 11.sp,
+                                    color = palette.muted,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                    lineHeight = 14.sp,
+                                    modifier = Modifier.weight(1f, fill = false)
+                                )
+                                Spacer(Modifier.width(2.dp))
+                                Icon(
+                                    Icons.Default.ExpandMore,
+                                    contentDescription = null,
+                                    tint = palette.muted,
+                                    modifier = Modifier.size(14.dp)
+                                )
+                            }
+                        }
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = palette.appBg),
@@ -304,35 +337,36 @@ private fun MainScreen(state: MailState) {
             )
         },
         bottomBar = {
+            // 四格完全同构：单色线性图标 + 两字名词 label + 同一套选中态。
+            // 与 domainmail/public 移动端规范一致：邮件 / 写信 / 邮箱 / 设置。
             NavigationBar(containerColor = palette.cardBg, tonalElevation = 0.dp) {
-                // 左下角：邮箱切换。用当前身份头像做图标，一眼能看出正在用哪个邮箱。
-                NavigationBarItem(
-                    selected = false,
-                    onClick = { showMailboxSheet = true },
-                    icon = {
-                        val current = state.currentMailbox ?: state.user?.email ?: ""
-                        val active = state.mailboxes.firstOrNull { it.address == current }
-                        DmAvatar(active?.label ?: "主邮箱", current.ifBlank { "主邮箱" }, 24.dp)
-                    },
-                    label = { Text("切换", fontSize = 11.sp) }
-                )
-                NavigationBarItem(
+                DmNavItem(
                     selected = state.tab == 0,
                     onClick = { state.tab = 0 },
-                    icon = { Icon(Icons.Default.Inbox, contentDescription = null) },
-                    label = { Text("邮件", fontSize = 11.sp) }
+                    icon = Icons.Default.Inbox,
+                    label = "邮件",
+                    palette = palette
                 )
-                NavigationBarItem(
+                DmNavItem(
                     selected = false,
                     onClick = { state.openCompose() },
-                    icon = { Icon(Icons.Default.Edit, contentDescription = null) },
-                    label = { Text("写信", fontSize = 11.sp) }
+                    icon = Icons.Default.Edit,
+                    label = "写信",
+                    palette = palette
                 )
-                NavigationBarItem(
+                DmNavItem(
+                    selected = state.tab == 1,
+                    onClick = { state.tab = 1 },
+                    icon = Icons.Default.MailOutline,
+                    label = "邮箱",
+                    palette = palette
+                )
+                DmNavItem(
                     selected = state.tab == 2,
                     onClick = { state.tab = 2 },
-                    icon = { Icon(Icons.Default.Settings, contentDescription = null) },
-                    label = { Text("设置", fontSize = 11.sp) }
+                    icon = Icons.Default.Settings,
+                    label = "设置",
+                    palette = palette
                 )
             }
         }
@@ -340,7 +374,7 @@ private fun MainScreen(state: MailState) {
         Box(Modifier.padding(padding).fillMaxSize()) {
             when (state.tab) {
                 0 -> MailListScreen(state)
-                1 -> AliasesScreen(state)
+                1 -> MailboxManageScreen(state)
                 else -> SettingsScreen(state)
             }
         }
@@ -349,6 +383,37 @@ private fun MainScreen(state: MailState) {
     if (showMailboxSheet) {
         MailboxSheet(state) { showMailboxSheet = false }
     }
+}
+
+/** 底栏统一格子：所有页面共用，保证图标、字号、配色完全一致。 */
+@Composable
+private fun DmNavItem(
+    selected: Boolean,
+    onClick: () -> Unit,
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    label: String,
+    palette: DmPalette
+) {
+    NavigationBarItem(
+        selected = selected,
+        onClick = onClick,
+        icon = {
+            Icon(
+                icon,
+                contentDescription = null,
+                tint = if (selected) palette.blue else palette.muted
+            )
+        },
+        label = {
+            Text(
+                label,
+                fontSize = 11.sp,
+                fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
+                color = if (selected) palette.blue else palette.muted
+            )
+        },
+        alwaysShowLabel = true
+    )
 }
 
 // ---------------- 邮件列表 ----------------
@@ -363,8 +428,6 @@ private fun MailListScreen(state: MailState) {
     ) {
         item {
             Column(Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
-                CurrentMailboxHint(state)
-                Spacer(Modifier.height(12.dp))
                 FolderRow(state)
                 Spacer(Modifier.height(10.dp))
                 FilterRow(state)
@@ -390,38 +453,6 @@ private fun MailListScreen(state: MailState) {
             }
             Spacer(Modifier.height(12.dp))
         }
-    }
-}
-
-/** 列表顶部的当前身份提示（只读）。切换入口已移到左下角底栏第一格。 */
-@Composable
-private fun CurrentMailboxHint(state: MailState) {
-    val palette = dm()
-    val current = state.currentMailbox ?: state.user?.email ?: ""
-    val active: Mailbox? = state.mailboxes.firstOrNull { it.address == current }
-    val title = active?.label?.takeIf { it.isNotBlank() }
-        ?: state.user?.displayName?.takeIf { it.isNotBlank() }
-        ?: "主邮箱"
-
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 4.dp, vertical = 2.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        DmAvatar(title, current.ifBlank { title }, 32.dp)
-        Spacer(Modifier.width(10.dp))
-        Column(Modifier.weight(1f)) {
-            Text("当前邮箱 · 点左下角「切换」更换", fontSize = 11.sp, color = palette.muted)
-            Text(
-                current.ifBlank { "尚未登录" },
-                fontSize = 13.sp,
-                fontWeight = FontWeight.SemiBold,
-                color = palette.ink,
-                lineHeight = 17.sp
-            )
-        }
-        active?.let { DmBadge(it.unread) }
     }
 }
 
@@ -478,8 +509,8 @@ private fun MailboxSheet(state: MailState, onDismiss: () -> Unit) {
                     Icon(Icons.Default.AlternateEmail, contentDescription = null, tint = palette.blue)
                     Spacer(Modifier.width(14.dp))
                     Column(Modifier.weight(1f)) {
-                        Text("管理别名", fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = palette.ink)
-                        Text("创建 / 删除无限别名", fontSize = 11.sp, color = palette.muted)
+                        Text("管理邮箱与别名", fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = palette.ink)
+                        Text("查看全部身份、创建或删除别名", fontSize = 11.sp, color = palette.muted)
                     }
                     Icon(Icons.Default.ExpandMore, contentDescription = null, tint = palette.muted)
                 }
@@ -524,6 +555,45 @@ private fun MailboxSheetRow(state: MailState, mailbox: Mailbox, onDismiss: () ->
         }
     }
     HorizontalDivider(color = palette.lineLight, modifier = Modifier.padding(horizontal = 20.dp))
+}
+
+/** 「邮箱」页里的身份行：与弹层行保持同一套视觉，但用卡片承载。 */
+@Composable
+private fun MailboxManageRow(state: MailState, mailbox: Mailbox) {
+    val palette = dm()
+    val selected = mailbox.address == (state.currentMailbox ?: state.user?.email)
+    DmCard(
+        modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
+        onClick = { state.setMailbox(mailbox.address) }
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(if (selected) palette.blueSoft else Color.Transparent)
+                .padding(14.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            DmAvatar(mailbox.label, mailbox.address, 40.dp)
+            Spacer(Modifier.width(12.dp))
+            Column(Modifier.weight(1f)) {
+                Text(
+                    mailbox.label,
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = palette.ink
+                )
+                // 完整地址：允许换行，不截断
+                Text(mailbox.address, fontSize = 12.sp, color = palette.muted2, lineHeight = 16.sp)
+                Text("${mailbox.total} 封 · ${mailbox.unread} 未读", fontSize = 11.sp, color = palette.muted)
+            }
+            Spacer(Modifier.width(8.dp))
+            if (selected) {
+                Icon(Icons.Default.Check, contentDescription = "当前", tint = palette.blue)
+            } else {
+                DmBadge(mailbox.unread)
+            }
+        }
+    }
 }
 
 @Composable
@@ -1044,24 +1114,80 @@ private fun LabeledInput(
     }
 }
 
-// ---------------- 别名 ----------------
+// ---------------- 邮箱（身份与别名管理） ----------------
 
 @Composable
-private fun AliasesScreen(state: MailState) {
+private fun MailboxManageScreen(state: MailState) {
     val palette = dm()
     LaunchedEffect(Unit) { state.loadSettings() }
     var prefix by remember { mutableStateOf("") }
     var domain by remember { mutableStateOf("") }
     var expanded by remember { mutableStateOf(false) }
 
+    val current = state.currentMailbox ?: state.user?.email ?: ""
+    val active: Mailbox? = state.mailboxes.firstOrNull { it.address == current }
+    val activeTitle = active?.label?.takeIf { it.isNotBlank() }
+        ?: state.user?.displayName?.takeIf { it.isNotBlank() }
+        ?: "主邮箱"
+
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
         contentPadding = androidx.compose.foundation.layout.PaddingValues(16.dp)
     ) {
         item {
-            Text("无限别名", fontSize = 22.sp, fontWeight = FontWeight.Bold, color = palette.ink)
-            Text("前缀回车即建，全部投递到主邮箱", fontSize = 12.sp, color = palette.muted)
+            Text("邮箱", fontSize = 22.sp, fontWeight = FontWeight.Bold, color = palette.ink)
+            Text("管理你的邮箱身份与无限别名", fontSize = 12.sp, color = palette.muted)
             Spacer(Modifier.height(16.dp))
+        }
+
+        // 当前身份卡：完整地址 + 未读数，头像只出现在内容卡片里，不进导航栏
+        item {
+            DmCard(modifier = Modifier.fillMaxWidth()) {
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(16.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    DmAvatar(activeTitle, current.ifBlank { activeTitle }, 46.dp)
+                    Spacer(Modifier.width(14.dp))
+                    Column(Modifier.weight(1f)) {
+                        Text("当前身份", fontSize = 11.sp, color = palette.muted)
+                        Text(
+                            activeTitle,
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = palette.ink
+                        )
+                        Text(
+                            current.ifBlank { "尚未登录" },
+                            fontSize = 12.sp,
+                            color = palette.muted2,
+                            lineHeight = 17.sp
+                        )
+                    }
+                    active?.let { DmBadge(it.unread) }
+                }
+            }
+            Spacer(Modifier.height(16.dp))
+            DmSectionTitle("全部邮箱身份 · ${state.mailboxes.size}")
+            Spacer(Modifier.height(8.dp))
+        }
+
+        items(state.mailboxes, key = { "mb-${it.address}" }) { mailbox ->
+            MailboxManageRow(state, mailbox)
+        }
+
+        if (state.mailboxes.isEmpty()) {
+            item {
+                Box(Modifier.fillMaxWidth().padding(24.dp), contentAlignment = Alignment.Center) {
+                    Text("暂无可用邮箱", color = palette.muted, fontSize = 13.sp)
+                }
+            }
+        }
+
+        item {
+            Spacer(Modifier.height(20.dp))
+            DmSectionTitle("无限别名")
+            Spacer(Modifier.height(8.dp))
             DmCard(modifier = Modifier.fillMaxWidth()) {
                 Column(Modifier.padding(16.dp)) {
                     DmSectionTitle("新建别名")
