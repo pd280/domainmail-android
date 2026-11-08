@@ -168,7 +168,7 @@ gradle assembleRelease --no-daemon
 
 1. `dtolnay/rust-toolchain` 装三个 Android target；
 2. `cargo install cargo-ndk` 装交叉编译工具（不用 install-action：它不支持 cargo-ndk，会 fallback 到受 GitHub API 限流影响的 cargo-binstall）；
-3. `android-actions/setup-android` + `sdkmanager` 装 NDK 26.3.11579264 / platform 35 / build-tools 35.0.0；
+3. 直接用 ubuntu-latest 预装的 Android SDK + `sdkmanager` 装 NDK 26.3.11579264 / platform 35 / build-tools 35.0.0（不用 `setup-android@v3`：它在新版 runner 上会因找不到旧 `tools` 包而失败）；
 4. `cargo ndk -t arm64-v8a -t armeabi-v7a -t x86_64 -o .../jniLibs build --release -p domainmail-core`；
 5. `gradle assembleRelease`；
 6. `apksigner verify` 验签 → 上传 artifact `domainmail-android-apk`；

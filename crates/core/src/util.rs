@@ -84,17 +84,19 @@ pub fn filename_from_disposition(disposition: &str) -> Option<String> {
     None
 }
 
-/// 去掉路径分隔符等危险字符，防止下载时写出目录外
+/// 去掉路径分隔符等危险字符，防止下载时写出目录外。
+/// Content-Disposition 是服务端给的，可能夹带路径穿越，所以先只取最后一段。
 pub fn safe_filename(name: &str) -> String {
-    let cleaned: String = name
+    let base = name.rsplit(|c| c == '/' || c == '\\').next().unwrap_or(name);
+    let cleaned: String = base
         .chars()
         .map(|c| match c {
-            '/' | '\\' | ':' | '*' | '?' | '"' | '<' | '>' | '|' | '\0' => '_',
+            ':' | '*' | '?' | '"' | '<' | '>' | '|' | '\0' => '_',
             c if c.is_control() => '_',
             c => c,
         })
         .collect();
-    let trimmed = cleaned.trim().trim_matches('.');
+    let trimmed = cleaned.trim().trim_matches(|c| c == '.' || c == '_');
     if trimmed.is_empty() {
         "download.bin".into()
     } else {
@@ -135,6 +137,9 @@ mod tests {
 
     #[test]
     fn strips_unsafe_filename_chars() {
-        assert_eq!(safe_filename("../../etc/passwd"), "etc_passwd");
+        assert_eq!(safe_filename("../../etc/passwd"), "passwd");
+        assert_eq!(safe_filename("..\\..\\windows\\system32\\x.dll"), "x.dll");
+        assert_eq!(safe_filename("报告.txt"), "报告.txt");
+        assert_eq!(safe_filename("..."), "download.bin");
     }
 }
