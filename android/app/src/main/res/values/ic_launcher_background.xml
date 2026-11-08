@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- 与 domainmail/public/style.css 的品牌蓝一致 -->
+    <color name="ic_launcher_background">#2563EB</color>
+</resources>

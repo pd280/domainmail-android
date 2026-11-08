@@ -174,16 +174,20 @@ gradle assembleRelease --no-daemon
 6. `apksigner verify` 验签 → 上传 artifact `domainmail-android-apk`；
 7. 打 `v*` tag 时自动建 Release 并附上 APK。
 
-**签名**：`app/build.gradle.kts` 会读 `-Pdm.keystore` / `DM_KEYSTORE` 等参数生成 release signingConfig；没配置就回落到 debug key，保证每次 CI 产物都**已签名、可直接安装**。正式发布时在仓库 Secrets 里配：
+**签名与覆盖安装**：CI 每次都是全新 runner，Gradle 回落的 `debug.keystore` 会逐次随机生成，签名不一致 → 手机无法覆盖安装。所以 workflow 从仓库 Secrets 恢复**同一把固定密钥**（PKCS12），并注入 `DM_VERSION_CODE=github.run_number` 让 versionCode 单调递增：
 
 ```
-DM_KEYSTORE            # base64 解码后落到 runner 的 .jks 路径
+DM_KEYSTORE_B64        # openssl 生成的 release.p12 的 base64
 DM_KEYSTORE_PASSWORD
 DM_KEY_ALIAS
 DM_KEY_PASSWORD
 ```
 
-并在 workflow 里加一步把 secret 解码成文件、用 `-Pdm.keystore=...` 传给 Gradle。
+`Restore fixed signing key` 步骤把 secret 解码到 `$RUNNER_TEMP` 再交给 Gradle；`build.gradle.kts` 里 `storeType = "PKCS12"` 必须显式声明，否则 p12 会被当成 JKS 解析失败。**私钥不进仓库**，仅在 Actions Secrets 里。本地不注入这些变量时回落到 debug key，仅供本机调试。
+
+> 注意：换用新签名密钥后，第一次从旧版（v0.2.0 及之前）升级仍需**先卸载一次**——旧包是随机 debug key 签的。从这次发版起，后续版本之间就能直接覆盖安装了。
+
+**应用图标**：`res/mipmap-anydpi-v26/` 下的 adaptive icon（品牌蓝底 + 白色信封 + 星标色圆点），配色取自 `public/style.css`；`res/mipmap/` 里另有一份 VectorDrawable 作为旧版本回退。全部是纯 XML，不需要 PNG 二进制。
 
 ### 只用 GitHub API 跑完全程（推荐）
 

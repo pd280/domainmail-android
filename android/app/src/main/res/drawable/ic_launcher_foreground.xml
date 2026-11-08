@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Adaptive icon 前景：108dp 画布，内容收在中央 66dp 安全区内 -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <group android:scaleX="0.62" android:scaleY="0.62" android:pivotX="54" android:pivotY="54">
+        <!-- 白色信封 -->
+        <path
+            android:fillColor="#FFFFFF"
+            android:pathData="M27,37 L81,37 A6,6 0 0 1 87,43 L87,69 A6,6 0 0 1 81,75 L27,75 A6,6 0 0 1 21,69 L21,43 A6,6 0 0 1 27,37 Z" />
+
+        <!-- 封口折线 -->
+        <path
+            android:pathData="M23,40 L54,63 L85,40"
+            android:strokeColor="#2563EB"
+            android:strokeWidth="4"
+            android:strokeLineCap="round"
+            android:strokeLineJoin="round"
+            android:fillColor="#00000000" />
+
+        <!-- 新邮件提示点 -->
+        <path
+            android:fillColor="#F0A92B"
+            android:pathData="M84,21 a9,9 0 1,0 0,18 a9,9 0 1,0 0,-18 z" />
+    </group>
+</vector>

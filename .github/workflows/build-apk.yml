@@ -73,6 +73,25 @@ jobs:
 
       # setup-gradle 的 gradle-version 已把 gradle 加进 PATH，直接用 CLI，
       # 不额外跑 `gradle wrapper`（那会多一次 settings 求值 + 插件解析，多一个失败点）。
+      - name: Restore fixed signing key
+        env:
+          DM_KEYSTORE_B64: ${{ secrets.DM_KEYSTORE_B64 }}
+          DM_KEYSTORE_PASSWORD: ${{ secrets.DM_KEYSTORE_PASSWORD }}
+          DM_KEY_ALIAS: ${{ secrets.DM_KEY_ALIAS }}
+          DM_KEY_PASSWORD: ${{ secrets.DM_KEY_PASSWORD }}
+        run: |
+          # 每次 runner 都是全新的，Gradle 自带的 debug.keystore 逐次随机生成，
+          # 签名不一致会导致手机无法覆盖安装。这里从 Actions Secret 恢复同一把密钥。
+          KEYSTORE="$RUNNER_TEMP/domainmail-release.p12"
+          echo "$DM_KEYSTORE_B64" | base64 -d > "$KEYSTORE"
+          test -s "$KEYSTORE" || { echo "::error::签名密钥为空"; exit 1; }
+          echo "DM_KEYSTORE=$KEYSTORE" >> "$GITHUB_ENV"
+          echo "DM_KEYSTORE_PASSWORD=$DM_KEYSTORE_PASSWORD" >> "$GITHUB_ENV"
+          echo "DM_KEY_ALIAS=$DM_KEY_ALIAS" >> "$GITHUB_ENV"
+          echo "DM_KEY_PASSWORD=$DM_KEY_PASSWORD" >> "$GITHUB_ENV"
+          # run_number 单调递增，保证新包 versionCode 一定大于旧包
+          echo "DM_VERSION_CODE=${{ github.run_number }}" >> "$GITHUB_ENV"
+
       - name: Assemble signed release APK
         working-directory: android
         run: gradle assembleRelease --no-daemon --stacktrace

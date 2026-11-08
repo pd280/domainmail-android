@@ -12,19 +12,22 @@ android {
         applicationId = "com.ifwqu.domainmail"
         minSdk = 26
         targetSdk = 35
-        versionCode = 1
-        versionName = "0.1.0"
+        // 覆盖安装要求 versionCode 严格递增；CI 用 github.run_number 注入。
+        versionCode = System.getenv("DM_VERSION_CODE")?.toIntOrNull() ?: 1
+        versionName = System.getenv("DM_VERSION_NAME") ?: "0.3.0"
         // 与 build-apk.yml 里 cargo-ndk 交叉编译的三个 ABI 一致
         ndk { abiFilters += listOf("arm64-v8a", "armeabi-v7a", "x86_64") }
     }
 
     signingConfigs {
-        // CI 可用 -Pdm.keystore=... 或 DM_KEYSTORE 等环境变量注入正式签名。
-        // 未注入时回落到 debug key，保证 assembleRelease 产物一定是已签名、可直接安装的 APK。
+        // CI 从 Actions Secret 恢复固定的 PKCS12 密钥，保证每次构建签名一致，
+        // 手机才能覆盖安装升级。本地不配置时回落到 debug key（仅用于本机调试）。
         val keystore = (findProperty("dm.keystore") as String?) ?: System.getenv("DM_KEYSTORE")
         if (!keystore.isNullOrBlank()) {
             create("release") {
                 storeFile = file(keystore)
+                // openssl 生成的 .p12 是 PKCS12，不显式声明会被当成 JKS 解析失败
+                storeType = "PKCS12"
                 storePassword = (findProperty("dm.keystore.password") as String?)
                     ?: System.getenv("DM_KEYSTORE_PASSWORD") ?: ""
                 keyAlias = (findProperty("dm.key.alias") as String?)
