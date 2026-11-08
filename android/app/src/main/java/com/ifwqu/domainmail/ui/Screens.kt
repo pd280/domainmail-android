@@ -7,6 +7,7 @@ import android.net.Uri
 import android.provider.OpenableColumns
 import android.webkit.WebView
 import android.widget.Toast
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
@@ -54,6 +55,7 @@ import androidx.compose.material.icons.filled.Send
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.StarBorder
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -70,7 +72,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
-import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
@@ -276,6 +277,13 @@ private fun LoginScreen(state: MailState) {
 @Composable
 private fun MainScreen(state: MailState) {
     val palette = dm()
+    var showMailboxSheet by remember { mutableStateOf(false) }
+
+    // 在别名 / 设置页按返回，先回邮件页，不直接退出 App
+    BackHandler(enabled = state.tab != 0) {
+        state.tab = 0
+    }
+
     Scaffold(
         containerColor = palette.appBg,
         topBar = {
@@ -297,6 +305,17 @@ private fun MainScreen(state: MailState) {
         },
         bottomBar = {
             NavigationBar(containerColor = palette.cardBg, tonalElevation = 0.dp) {
+                // 左下角：邮箱切换。用当前身份头像做图标，一眼能看出正在用哪个邮箱。
+                NavigationBarItem(
+                    selected = false,
+                    onClick = { showMailboxSheet = true },
+                    icon = {
+                        val current = state.currentMailbox ?: state.user?.email ?: ""
+                        val active = state.mailboxes.firstOrNull { it.address == current }
+                        DmAvatar(active?.label ?: "主邮箱", current.ifBlank { "主邮箱" }, 24.dp)
+                    },
+                    label = { Text("切换", fontSize = 11.sp) }
+                )
                 NavigationBarItem(
                     selected = state.tab == 0,
                     onClick = { state.tab = 0 },
@@ -308,12 +327,6 @@ private fun MainScreen(state: MailState) {
                     onClick = { state.openCompose() },
                     icon = { Icon(Icons.Default.Edit, contentDescription = null) },
                     label = { Text("写信", fontSize = 11.sp) }
-                )
-                NavigationBarItem(
-                    selected = state.tab == 1,
-                    onClick = { state.tab = 1 },
-                    icon = { Icon(Icons.Default.AlternateEmail, contentDescription = null) },
-                    label = { Text("邮箱", fontSize = 11.sp) }
                 )
                 NavigationBarItem(
                     selected = state.tab == 2,
@@ -332,6 +345,10 @@ private fun MainScreen(state: MailState) {
             }
         }
     }
+
+    if (showMailboxSheet) {
+        MailboxSheet(state) { showMailboxSheet = false }
+    }
 }
 
 // ---------------- 邮件列表 ----------------
@@ -339,7 +356,6 @@ private fun MainScreen(state: MailState) {
 @Composable
 private fun MailListScreen(state: MailState) {
     val palette = dm()
-    var showMailboxSheet by remember { mutableStateOf(false) }
 
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
@@ -347,7 +363,7 @@ private fun MailListScreen(state: MailState) {
     ) {
         item {
             Column(Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
-                MailboxSwitcherCard(state) { showMailboxSheet = true }
+                CurrentMailboxHint(state)
                 Spacer(Modifier.height(12.dp))
                 FolderRow(state)
                 Spacer(Modifier.height(10.dp))
@@ -375,15 +391,11 @@ private fun MailListScreen(state: MailState) {
             Spacer(Modifier.height(12.dp))
         }
     }
-
-    if (showMailboxSheet) {
-        MailboxSheet(state) { showMailboxSheet = false }
-    }
 }
 
-/** 整行身份卡：完整显示地址，不再挤在小按钮里被截断。 */
+/** 列表顶部的当前身份提示（只读）。切换入口已移到左下角底栏第一格。 */
 @Composable
-private fun MailboxSwitcherCard(state: MailState, onClick: () -> Unit) {
+private fun CurrentMailboxHint(state: MailState) {
     val palette = dm()
     val current = state.currentMailbox ?: state.user?.email ?: ""
     val active: Mailbox? = state.mailboxes.firstOrNull { it.address == current }
@@ -391,36 +403,25 @@ private fun MailboxSwitcherCard(state: MailState, onClick: () -> Unit) {
         ?: state.user?.displayName?.takeIf { it.isNotBlank() }
         ?: "主邮箱"
 
-    DmCard(modifier = Modifier.fillMaxWidth(), onClick = onClick) {
-        Row(
-            modifier = Modifier.fillMaxWidth().padding(14.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            DmAvatar(title, current.ifBlank { title }, 42.dp)
-            Spacer(Modifier.width(12.dp))
-            Column(Modifier.weight(1f)) {
-                Text("当前邮箱", fontSize = 11.sp, color = palette.muted)
-                Text(
-                    title,
-                    fontSize = 15.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    color = palette.ink,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-                // 完整地址：允许换行，绝不省略
-                Text(
-                    current.ifBlank { "尚未登录" },
-                    fontSize = 12.sp,
-                    color = palette.muted2,
-                    lineHeight = 16.sp
-                )
-            }
-            Spacer(Modifier.width(8.dp))
-            active?.let { DmBadge(it.unread) }
-            Spacer(Modifier.width(4.dp))
-            Icon(Icons.Default.ExpandMore, contentDescription = "切换邮箱", tint = palette.muted)
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 4.dp, vertical = 2.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        DmAvatar(title, current.ifBlank { title }, 32.dp)
+        Spacer(Modifier.width(10.dp))
+        Column(Modifier.weight(1f)) {
+            Text("当前邮箱 · 点左下角「切换」更换", fontSize = 11.sp, color = palette.muted)
+            Text(
+                current.ifBlank { "尚未登录" },
+                fontSize = 13.sp,
+                fontWeight = FontWeight.SemiBold,
+                color = palette.ink,
+                lineHeight = 17.sp
+            )
         }
+        active?.let { DmBadge(it.unread) }
     }
 }
 
@@ -457,6 +458,30 @@ private fun MailboxSheet(state: MailState, onDismiss: () -> Unit) {
                     Box(Modifier.fillMaxWidth().padding(32.dp), contentAlignment = Alignment.Center) {
                         Text("暂无可用邮箱", color = palette.muted)
                     }
+                }
+            }
+            item {
+                HorizontalDivider(
+                    color = palette.lineLight,
+                    modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp)
+                )
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable {
+                            state.tab = 1
+                            onDismiss()
+                        }
+                        .padding(horizontal = 20.dp, vertical = 14.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(Icons.Default.AlternateEmail, contentDescription = null, tint = palette.blue)
+                    Spacer(Modifier.width(14.dp))
+                    Column(Modifier.weight(1f)) {
+                        Text("管理别名", fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = palette.ink)
+                        Text("创建 / 删除无限别名", fontSize = 11.sp, color = palette.muted)
+                    }
+                    Icon(Icons.Default.ExpandMore, contentDescription = null, tint = palette.muted)
                 }
             }
         }
@@ -679,6 +704,12 @@ private fun EmptyState(title: String, subtitle: String) {
 @Composable
 private fun DetailScreen(state: MailState) {
     val palette = dm()
+
+    // 拦截系统返回键 / 边缘返回手势，否则会直接 finish() 退出 App
+    BackHandler(enabled = true) {
+        state.backToList()
+    }
+
     Scaffold(
         containerColor = palette.appBg,
         topBar = {
@@ -840,9 +871,40 @@ private fun ComposeScreen(state: MailState) {
     var body by remember { mutableStateOf("") }
     var picked by remember { mutableStateOf(listOf<PickedFile>()) }
     var fromExpanded by remember { mutableStateOf(false) }
+    var showDiscardDialog by remember { mutableStateOf(false) }
 
     val picker = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri: Uri? ->
         if (uri != null) picked = picked + copyUriToCache(context, uri)
+    }
+
+    // 顶栏箭头与系统返回手势共用同一套逻辑：有草稿先确认，空内容直接回列表。
+    val hasDraft = to.isNotBlank() || cc.isNotBlank() || subject.isNotBlank() ||
+        body.isNotBlank() || picked.isNotEmpty()
+    fun requestBack() {
+        if (hasDraft) showDiscardDialog = true else state.backToList()
+    }
+
+    BackHandler(enabled = true) {
+        if (showDiscardDialog) showDiscardDialog = false else requestBack()
+    }
+
+    if (showDiscardDialog) {
+        AlertDialog(
+            onDismissRequest = { showDiscardDialog = false },
+            title = { Text("放弃这封邮件？", color = palette.ink) },
+            text = { Text("草稿内容将丢失，且不会保存。", color = palette.ink2) },
+            confirmButton = {
+                TextButton(onClick = {
+                    showDiscardDialog = false
+                    state.backToList()
+                }) { Text("放弃", color = palette.danger) }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDiscardDialog = false }) {
+                    Text("继续编辑", color = palette.blue)
+                }
+            }
+        )
     }
 
     Scaffold(
@@ -851,7 +913,7 @@ private fun ComposeScreen(state: MailState) {
             TopAppBar(
                 title = { Text("写邮件", color = palette.ink, fontSize = 17.sp) },
                 navigationIcon = {
-                    IconButton(onClick = { state.backToList() }) {
+                    IconButton(onClick = { requestBack() }) {
                         Icon(Icons.Default.ArrowBack, contentDescription = "返回", tint = palette.ink)
                     }
                 },
