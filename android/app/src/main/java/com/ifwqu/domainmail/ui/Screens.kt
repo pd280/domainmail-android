@@ -10,6 +10,7 @@ import android.widget.Toast
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
@@ -90,8 +91,11 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
@@ -101,6 +105,7 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.FileProvider
 import com.ifwqu.domainmail.Alias
+import com.ifwqu.domainmail.R
 import com.ifwqu.domainmail.MailState
 import com.ifwqu.domainmail.Mailbox
 import com.ifwqu.domainmail.MessageSummary
@@ -163,22 +168,20 @@ fun DomainMailApp() {
 
 // ---------------- 品牌头 ----------------
 
+/**
+ * 品牌位：与启动图标共用同一张表情包位图 R.drawable.mascot。
+ * 用 Image + ContentScale.Crop，避免 Icon 的 tint 覆盖原图配色。
+ */
 @Composable
 private fun BrandMark(size: Int = 34) {
-    val palette = dm()
-    Box(
+    Image(
+        painter = painterResource(R.drawable.mascot),
+        contentDescription = "Hy4email",
+        contentScale = ContentScale.Crop,
         modifier = Modifier
             .size(size.dp)
-            .background(palette.blue, RoundedCornerShape(10.dp)),
-        contentAlignment = Alignment.Center
-    ) {
-        Icon(
-            Icons.Default.MailOutline,
-            contentDescription = null,
-            tint = palette.onBlue,
-            modifier = Modifier.size((size * 0.55f).dp)
-        )
-    }
+            .clip(RoundedCornerShape(10.dp))
+    )
 }
 
 // ---------------- 登录 ----------------
@@ -205,7 +208,7 @@ private fun LoginScreen(state: MailState) {
         Spacer(Modifier.height(24.dp))
         BrandMark(56)
         Spacer(Modifier.height(16.dp))
-        Text("DomainMail", fontSize = 28.sp, fontWeight = FontWeight.Bold, color = palette.ink)
+        Text("Hy4email", fontSize = 28.sp, fontWeight = FontWeight.Bold, color = palette.ink)
         Text("你的自建域名邮箱", fontSize = 13.sp, color = palette.muted)
         Spacer(Modifier.height(28.dp))
 
@@ -299,7 +302,7 @@ private fun MainScreen(state: MailState) {
                         Spacer(Modifier.width(10.dp))
                         Column(Modifier.weight(1f)) {
                             Text(
-                                "DomainMail",
+                                "Hy4email",
                                 fontSize = 16.sp,
                                 fontWeight = FontWeight.Bold,
                                 color = palette.ink,
@@ -1300,7 +1303,7 @@ private fun SettingsScreen(state: MailState) {
                 Spacer(Modifier.width(14.dp))
                 Column(Modifier.weight(1f)) {
                     Text(
-                        state.user?.displayName?.takeIf { it.isNotBlank() } ?: "DomainMail 用户",
+                        state.user?.displayName?.takeIf { it.isNotBlank() } ?: "Hy4email 用户",
                         fontWeight = FontWeight.Bold,
                         fontSize = 16.sp,
                         color = palette.ink
@@ -1379,7 +1382,7 @@ private fun SettingsScreen(state: MailState) {
         }
         Spacer(Modifier.height(12.dp))
         Text(
-            "DomainMail Android · 业务核心由 Rust 实现",
+            "Hy4email · 业务核心由 Rust 实现",
             fontSize = 11.sp,
             color = palette.muted,
             modifier = Modifier.align(Alignment.CenterHorizontally)

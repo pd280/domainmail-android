@@ -1,4 +1,4 @@
-# DomainMail Android · Rust + GitHub Actions
+# Hy4email Android · Rust + GitHub Actions
 
 给 [ifwqu/domainmail](https://github.com/ifwqu/domainmail)（自建域名邮箱服务器）做的安卓客户端。
 
@@ -187,7 +187,14 @@ DM_KEY_PASSWORD
 
 > 注意：换用新签名密钥后，第一次从旧版（v0.2.0 及之前）升级仍需**先卸载一次**——旧包是随机 debug key 签的。从这次发版起，后续版本之间就能直接覆盖安装了。
 
-**应用图标**：`res/mipmap-anydpi-v26/` 下的 adaptive icon（品牌蓝底 + 白色信封 + 星标色圆点），配色取自 `public/style.css`；`res/mipmap/` 里另有一份 VectorDrawable 作为旧版本回退。全部是纯 XML，不需要 PNG 二进制。
+**应用名与图标**：App 显示名为 **Hy4email**（`res/values/strings.xml` 的 `app_name`）。`applicationId` 保持 `com.ifwqu.domainmail` 不变，改名不影响签名与覆盖安装。
+
+图标使用用户提供的表情包形象（深棕波波头、大眼睛、红围巾、浅蓝背景）：
+
+- 源图经居中裁切为 432×432 PNG，放在 `branding/mascot.png`；由于 Git Data API 只推文本，仓库里保存的是 `branding/mascot.png.base64`。
+- workflow 的 `Decode launcher mascot` 步骤把它解码到 `res/drawable-xxxhdpi/mascot.png`（432px @ 4x = 108dp，正好是 adaptive icon foreground 画布尺寸）。
+- `mipmap-anydpi-v26/ic_launcher*.xml` 的 foreground 与 `mipmap/ic_launcher*.xml` 回退图标都引用 `@drawable/mascot`；`ic_launcher_background` 取原图四角采样色 `#E1F7FC`，避免视差时露出色差。
+- 顶栏品牌位 `BrandMark` 通过 `painterResource(R.drawable.mascot)` 复用同一张图，启动图标与界面顶部是同一个形象。
 
 ### 只用 GitHub API 跑完全程（推荐）
 

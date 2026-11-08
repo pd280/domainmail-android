@@ -92,6 +92,17 @@ jobs:
           # run_number 单调递增，保证新包 versionCode 一定大于旧包
           echo "DM_VERSION_CODE=${{ github.run_number }}" >> "$GITHUB_ENV"
 
+      # 表情包位图以纯文本 base64 入库（Git Data API 只推文本），CI 解码到 xxxhdpi。
+      # 432px @ xxxhdpi(4x) = 108dp，正好是 adaptive icon foreground 的画布尺寸。
+      - name: Decode launcher mascot
+        run: |
+          mkdir -p android/app/src/main/res/drawable-xxxhdpi
+          base64 -d branding/mascot.png.base64 > android/app/src/main/res/drawable-xxxhdpi/mascot.png
+          test -s android/app/src/main/res/drawable-xxxhdpi/mascot.png || {
+            echo "::error::表情包位图解码失败"; exit 1;
+          }
+          ls -lh android/app/src/main/res/drawable-xxxhdpi/mascot.png
+
       - name: Assemble signed release APK
         working-directory: android
         run: gradle assembleRelease --no-daemon --stacktrace
