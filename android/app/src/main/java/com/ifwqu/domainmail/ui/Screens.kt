@@ -40,6 +40,7 @@ import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.AttachFile
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.Edit
@@ -94,8 +95,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
@@ -182,6 +185,32 @@ private fun BrandMark(size: Int = 34) {
             .size(size.dp)
             .clip(RoundedCornerShape(10.dp))
     )
+}
+
+/**
+ * 统一的「复制邮箱地址」按钮：线性图标、单色、与顶栏刷新按钮同规格。
+ * 用 IconButton 自行消费点击，不会触发外层卡片 / 身份行的切换动作。
+ */
+@Composable
+private fun CopyAddressButton(address: String, label: String = "已复制邮箱地址") {
+    val palette = dm()
+    val clipboard = LocalClipboardManager.current
+    val context = LocalContext.current
+    IconButton(
+        onClick = {
+            if (address.isBlank()) return@IconButton
+            clipboard.setText(AnnotatedString(address))
+            Toast.makeText(context, label, Toast.LENGTH_SHORT).show()
+        },
+        modifier = Modifier.size(36.dp)
+    ) {
+        Icon(
+            Icons.Default.ContentCopy,
+            contentDescription = "复制邮箱地址",
+            tint = palette.muted,
+            modifier = Modifier.size(18.dp)
+        )
+    }
 }
 
 // ---------------- 登录 ----------------
@@ -334,6 +363,10 @@ private fun MainScreen(state: MailState) {
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = palette.appBg),
                 actions = {
+                    CopyAddressButton(
+                        address = state.currentMailbox?.takeIf { it.isNotBlank() }
+                            ?: state.user?.email.orEmpty()
+                    )
                     IconButton(onClick = { state.refresh() }) {
                         Icon(Icons.Default.Refresh, contentDescription = "刷新", tint = palette.ink2)
                     }
@@ -554,12 +587,12 @@ private fun MailboxSheetRow(state: MailState, mailbox: Mailbox, onDismiss: () ->
             Text(mailbox.address, fontSize = 13.sp, color = palette.muted2, lineHeight = 17.sp)
             Text("${mailbox.total} 封 · ${mailbox.unread} 未读", fontSize = 11.sp, color = palette.muted)
         }
-        Spacer(Modifier.width(8.dp))
         if (selected) {
             Icon(Icons.Default.Check, contentDescription = "当前", tint = palette.blue)
         } else {
             DmBadge(mailbox.unread)
         }
+        CopyAddressButton(mailbox.address)
     }
     HorizontalDivider(color = palette.lineLight, modifier = Modifier.padding(horizontal = 20.dp))
 }
@@ -593,12 +626,12 @@ private fun MailboxManageRow(state: MailState, mailbox: Mailbox) {
                 Text(mailbox.address, fontSize = 12.sp, color = palette.muted2, lineHeight = 16.sp)
                 Text("${mailbox.total} 封 · ${mailbox.unread} 未读", fontSize = 11.sp, color = palette.muted)
             }
-            Spacer(Modifier.width(8.dp))
             if (selected) {
                 Icon(Icons.Default.Check, contentDescription = "当前", tint = palette.blue)
             } else {
                 DmBadge(mailbox.unread)
             }
+            CopyAddressButton(mailbox.address)
         }
     }
 }
@@ -1172,6 +1205,7 @@ private fun MailboxManageScreen(state: MailState) {
                         )
                     }
                     active?.let { DmBadge(it.unread) }
+                    CopyAddressButton(current)
                 }
             }
             Spacer(Modifier.height(16.dp))
@@ -1264,6 +1298,7 @@ private fun MailboxManageScreen(state: MailState) {
                             color = palette.muted
                         )
                     }
+                    CopyAddressButton(alias.address, label = "已复制别名地址")
                     IconButton(onClick = { state.deleteAlias(alias.id) }) {
                         Icon(Icons.Default.Delete, contentDescription = "删除", tint = palette.danger)
                     }
@@ -1310,6 +1345,7 @@ private fun SettingsScreen(state: MailState) {
                     )
                     Text(state.user?.email ?: "", fontSize = 12.sp, color = palette.muted2)
                 }
+                CopyAddressButton(state.user?.email.orEmpty())
             }
         }
 
