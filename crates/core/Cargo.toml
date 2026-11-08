@@ -1,0 +1,25 @@
+[package]
+name = "domainmail-core"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+description = "Rust client core for the DomainMail self-hosted mail server (Android JNI + desktop)"
+
+[lib]
+name = "domainmail_core"
+crate-type = ["rlib", "cdylib"]
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+log = { workspace = true }
+reqwest = { version = "0.12", default-features = false, features = ["blocking", "rustls-tls", "json"] }
+base64 = "0.22"
+thiserror = "2"
+
+# 只在 Android 目标上参与编译；桌面 cargo test / clippy 完全不碰 JNI，
+# 这样本地没有 Android NDK 也能跑完整测试。
+[target.'cfg(target_os = "android")'.dependencies]
+jni = "0.21"
+android_logger = "0.14"

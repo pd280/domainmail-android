@@ -1,0 +1,11 @@
+[package]
+name = "domainmail-cli"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+description = "Desktop CLI to verify the DomainMail Rust core against a live server"
+
+[dependencies]
+domainmail-core = { path = "../crates/core" }
+serde_json = { workspace = true }

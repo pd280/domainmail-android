@@ -1,0 +1,29 @@
+# Rust
+/target/
+**/*.rs.bk
+Cargo.lock.orig
+
+# Gradle / Android
+android/.gradle/
+android/build/
+android/app/build/
+android/local.properties
+android/.idea/
+android/captures/
+android/app/src/main/jniLibs/**/*.so
+*.apk
+*.aab
+
+# 本地会话 / 配置（绝不提交）
+domainmail-cli-session/
+session.json
+config.json
+*.keystore
+*.jks
+
+# 参考仓库（只读，用于核对后端接口契约）
+/domainmail/
+
+# 系统
+.DS_Store
+Thumbs.db
